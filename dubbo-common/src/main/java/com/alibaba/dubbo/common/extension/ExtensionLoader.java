@@ -74,6 +74,7 @@ public class ExtensionLoader<T> {
     
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS = new ConcurrentHashMap<Class<?>, ExtensionLoader<?>>();
 
+    //例如: DubboProtocol.class=DubbonProtocol Instance
     private static final ConcurrentMap<Class<?>, Object> EXTENSION_INSTANCES = new ConcurrentHashMap<Class<?>, Object>();
 
     // ==============================
@@ -92,9 +93,11 @@ public class ExtensionLoader<T> {
 
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<String, Holder<Object>>();
 
+    //@SPI 注解中的value
     private String cachedDefaultName;
 
     private final Holder<Object> cachedAdaptiveInstance = new Holder<Object>();
+
     private volatile Throwable createAdaptiveInstanceError;
 
     //例如ProtocolFilterWrapper
@@ -509,7 +512,13 @@ public class ExtensionLoader<T> {
                 EXTENSION_INSTANCES.putIfAbsent(clazz, (T) clazz.newInstance());
                 instance = (T) EXTENSION_INSTANCES.get(clazz);
             }
+
+
+            //set参数
             injectExtension(instance);
+
+            //如果存在有参构造函数(参数为type),然后循环创建包装类的实例,然后将实例赋值给instance,
+            //最终的instance是new ProtocolListenerWrapper(new ProtocolFilterWrapper(new DubboProtocol()))
             Set<Class<?>> wrapperClasses = cachedWrapperClasses;
             if (wrapperClasses != null && wrapperClasses.size() > 0) {
                 for (Class<?> wrapperClass : wrapperClasses) {
@@ -567,6 +576,7 @@ public class ExtensionLoader<T> {
             synchronized (cachedClasses) {
                 classes = cachedClasses.get();
                 if (classes == null) {
+                    //extensionClasses中存储的是name-class,例如:dubbo=DubboProtocol
                     classes = loadExtensionClasses();
                     cachedClasses.set(classes);
                 }
@@ -765,6 +775,12 @@ public class ExtensionLoader<T> {
     private Class<?> createAdaptiveExtensionClass() {
         //自己拼装的java类
         String code = createAdaptiveExtensionClassCode();
+
+        logger.info("adaptive Class code is: ");
+        //System.out.println(code);
+
+        System.out.println("-------------------------");
+
         ClassLoader classLoader = findClassLoader();
         //编译.java文件
         com.alibaba.dubbo.common.compiler.Compiler compiler = ExtensionLoader.getExtensionLoader(com.alibaba.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
@@ -773,6 +789,8 @@ public class ExtensionLoader<T> {
     
     private String createAdaptiveExtensionClassCode() {
         StringBuilder codeBuidler = new StringBuilder();
+
+        //获取type的所有方法,如果方法上加了@Adaptive,则跳出循环
         Method[] methods = type.getMethods();
         boolean hasAdaptiveAnnotation = false;
         for(Method m : methods) {
@@ -781,19 +799,22 @@ public class ExtensionLoader<T> {
                 break;
             }
         }
-        // 完全没有Adaptive方法，则不需要生成Adaptive类
+
+        // 针对方法上没有@Adaptive的情况，直接抛出异常
         if(! hasAdaptiveAnnotation)
             throw new IllegalStateException("No adaptive method on extension " + type.getName() + ", refuse to create the adaptive class!");
-        
+
+        //开始拼装.java
         codeBuidler.append("package " + type.getPackage().getName() + ";");
         codeBuidler.append("\nimport " + ExtensionLoader.class.getName() + ";");
         codeBuidler.append("\npublic class " + type.getSimpleName() + "$Adpative" + " implements " + type.getCanonicalName() + " {");
         
         for (Method method : methods) {
-            Class<?> rt = method.getReturnType();
-            Class<?>[] pts = method.getParameterTypes();
-            Class<?>[] ets = method.getExceptionTypes();
+            Class<?> returnType = method.getReturnType();
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            Class<?>[] exceptionTypes = method.getExceptionTypes();
 
+            //获取方法上的注解
             Adaptive adaptiveAnnotation = method.getAnnotation(Adaptive.class);
             StringBuilder code = new StringBuilder(512);
             if (adaptiveAnnotation == null) {
@@ -801,9 +822,10 @@ public class ExtensionLoader<T> {
                         .append(method.toString()).append(" of interface ")
                         .append(type.getName()).append(" is not adaptive method!\");");
             } else {
+                //针对方法上存在@Adaptive,且方法参数中存在URL,则返回脚标
                 int urlTypeIndex = -1;
-                for (int i = 0; i < pts.length; ++i) {
-                    if (pts[i].equals(URL.class)) {
+                for (int i = 0; i < parameterTypes.length; ++i) {
+                    if (parameterTypes[i].equals(URL.class)) {
                         urlTypeIndex = i;
                         break;
                     }
@@ -818,14 +840,13 @@ public class ExtensionLoader<T> {
                     s = String.format("\n%s url = arg%d;", URL.class.getName(), urlTypeIndex); 
                     code.append(s);
                 }
-                // 参数没有URL类型
+                // 如果参数没有URL类型,就通过反射获取参数的所有的方法。如果返回参数有URL,则保持该方法名和脚标
                 else {
                     String attribMethod = null;
                     
-                    // 找到参数的URL属性
                     LBL_PTS:
-                    for (int i = 0; i < pts.length; ++i) {
-                        Method[] ms = pts[i].getMethods();
+                    for (int i = 0; i < parameterTypes.length; ++i) {
+                        Method[] ms = parameterTypes[i].getMethods();
                         for (Method m : ms) {
                             String name = m.getName();
                             if ((name.startsWith("get") || name.length() > 3)
@@ -846,22 +867,24 @@ public class ExtensionLoader<T> {
                     
                     // Null point check
                     String s = String.format("\nif (arg%d == null) throw new IllegalArgumentException(\"%s argument == null\");",
-                                    urlTypeIndex, pts[urlTypeIndex].getName());
+                                    urlTypeIndex, parameterTypes[urlTypeIndex].getName());
                     code.append(s);
                     s = String.format("\nif (arg%d.%s() == null) throw new IllegalArgumentException(\"%s argument %s() == null\");",
-                                    urlTypeIndex, attribMethod, pts[urlTypeIndex].getName(), attribMethod);
+                                    urlTypeIndex, attribMethod, parameterTypes[urlTypeIndex].getName(), attribMethod);
                     code.append(s);
 
                     s = String.format("%s url = arg%d.%s();",URL.class.getName(), urlTypeIndex, attribMethod); 
                     code.append(s);
                 }
-                
+
+                //开始解析方法上@Adaptive中的value
                 String[] value = adaptiveAnnotation.value();
                 // 没有设置Key，则使用“扩展点接口名的点分隔 作为Key
                 if(value.length == 0) {
                     char[] charArray = type.getSimpleName().toCharArray();
                     StringBuilder sb = new StringBuilder(128);
                     for (int i = 0; i < charArray.length; i++) {
+                        //如果是大写字母,i>0时,都拼接一个.
                         if(Character.isUpperCase(charArray[i])) {
                             if(i != 0) {
                                 sb.append(".");
@@ -876,8 +899,8 @@ public class ExtensionLoader<T> {
                 }
                 
                 boolean hasInvocation = false;
-                for (int i = 0; i < pts.length; ++i) {
-                    if (pts[i].getName().equals("com.alibaba.dubbo.rpc.Invocation")) {
+                for (int i = 0; i < parameterTypes.length; ++i) {
+                    if (parameterTypes[i].getName().equals("com.alibaba.dubbo.rpc.Invocation")) {
                         // Null Point check
                         String s = String.format("\nif (arg%d == null) throw new IllegalArgumentException(\"invocation == null\");", i);
                         code.append(s);
@@ -933,13 +956,13 @@ public class ExtensionLoader<T> {
                 code.append(s);
                 
                 // return statement
-                if (!rt.equals(void.class)) {
+                if (!returnType.equals(void.class)) {
                     code.append("\nreturn ");
                 }
 
                 s = String.format("extension.%s(", method.getName());
                 code.append(s);
-                for (int i = 0; i < pts.length; i++) {
+                for (int i = 0; i < parameterTypes.length; i++) {
                     if (i != 0)
                         code.append(", ");
                     code.append("arg").append(i);
@@ -947,23 +970,23 @@ public class ExtensionLoader<T> {
                 code.append(");");
             }
             
-            codeBuidler.append("\npublic " + rt.getCanonicalName() + " " + method.getName() + "(");
-            for (int i = 0; i < pts.length; i ++) {
+            codeBuidler.append("\npublic " + returnType.getCanonicalName() + " " + method.getName() + "(");
+            for (int i = 0; i < parameterTypes.length; i ++) {
                 if (i > 0) {
                     codeBuidler.append(", ");
                 }
-                codeBuidler.append(pts[i].getCanonicalName());
+                codeBuidler.append(parameterTypes[i].getCanonicalName());
                 codeBuidler.append(" ");
                 codeBuidler.append("arg" + i);
             }
             codeBuidler.append(")");
-            if (ets.length > 0) {
+            if (exceptionTypes.length > 0) {
                 codeBuidler.append(" throws ");
-                for (int i = 0; i < ets.length; i ++) {
+                for (int i = 0; i < exceptionTypes.length; i ++) {
                     if (i > 0) {
                         codeBuidler.append(", ");
                     }
-                    codeBuidler.append(ets[i].getCanonicalName());
+                    codeBuidler.append(exceptionTypes[i].getCanonicalName());
                 }
             }
             codeBuidler.append(" {");

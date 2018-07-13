@@ -1,0 +1,6 @@
+decode=com.alibaba.dubbo.demo.spi.DecodeFilter
+encode=com.alibaba.dubbo.demo.spi.EncodeFilter
+http=com.alibaba.dubbo.demo.spi.HttpFilter
+logger=com.alibaba.dubbo.demo.spi.LoggerFilter
+telnet=com.alibaba.dubbo.demo.spi.TelnetFilter
+adaptive=com.alibaba.dubbo.demo.spi.AdaptiveFilter
