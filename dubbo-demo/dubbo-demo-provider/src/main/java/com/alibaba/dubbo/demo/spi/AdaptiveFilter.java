@@ -1,7 +1,6 @@
 package com.alibaba.dubbo.demo.spi;
 
 import com.alibaba.dubbo.common.URL;
-import com.alibaba.dubbo.common.extension.Adaptive;
 
 /**
  * @Auther: Jerrik
@@ -17,7 +16,6 @@ public class AdaptiveFilter implements IFilter {
         System.out.println("AdaptiveFilter");
     }
 
-    @Adaptive
     public void setUrl(URL url){
         System.out.println("url: " + url);
     }

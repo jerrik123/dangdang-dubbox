@@ -17,6 +17,6 @@ public interface IFilter {
 
     public void setUrl(URL url);
 
-    @Adaptive
+    @Adaptive(value = {"decode","http"})
     public void operation(UrlNode urlNode);
 }

@@ -817,6 +817,7 @@ public class ExtensionLoader<T> {
             //获取方法上的注解
             Adaptive adaptiveAnnotation = method.getAnnotation(Adaptive.class);
             StringBuilder code = new StringBuilder(512);
+            //如果没有@Adaptive注解,则拼装UnsupportedOperationException,方法名在下面添加
             if (adaptiveAnnotation == null) {
                 code.append("throw new UnsupportedOperationException(\"method ")
                         .append(method.toString()).append(" of interface ")
@@ -868,23 +869,30 @@ public class ExtensionLoader<T> {
                     // Null point check
                     String s = String.format("\nif (arg%d == null) throw new IllegalArgumentException(\"%s argument == null\");",
                                     urlTypeIndex, parameterTypes[urlTypeIndex].getName());
-                    code.append(s);
-                    s = String.format("\nif (arg%d.%s() == null) throw new IllegalArgumentException(\"%s argument %s() == null\");",
-                                    urlTypeIndex, attribMethod, parameterTypes[urlTypeIndex].getName(), attribMethod);
+                    // if (arg0 == null) throw new IllegalArgumentException("com.alibaba.dubbo.demo.spi.UrlNode argument == null");
+
                     code.append(s);
 
-                    s = String.format("%s url = arg%d.%s();",URL.class.getName(), urlTypeIndex, attribMethod); 
+                    s = String.format("\nif (arg%d.%s() == null) throw new IllegalArgumentException(\"%s argument %s() == null\");",
+                                    urlTypeIndex, attribMethod, parameterTypes[urlTypeIndex].getName(), attribMethod);
+                    // if (arg0.getUrl() == null) throw new IllegalArgumentException("com.alibaba.dubbo.demo.spi.UrlNode argument getUrl() == null");
+
+                    code.append(s);
+
+                    s = String.format("%s url = arg%d.%s();",URL.class.getName(), urlTypeIndex, attribMethod);
+                    //com.alibaba.dubbo.common.URL url = arg0.getUrl();
+
                     code.append(s);
                 }
 
                 //开始解析方法上@Adaptive中的value
-                String[] value = adaptiveAnnotation.value();
+                String[] adaptiveValArray = adaptiveAnnotation.value();
                 // 没有设置Key，则使用“扩展点接口名的点分隔 作为Key
-                if(value.length == 0) {
+                if(adaptiveValArray.length == 0) {
                     char[] charArray = type.getSimpleName().toCharArray();
                     StringBuilder sb = new StringBuilder(128);
                     for (int i = 0; i < charArray.length; i++) {
-                        //如果是大写字母,i>0时,都拼接一个.
+                        //除去首字母,如果其它字母是大写,则拼接一个"."做间隔符.例如:IFilter ->i.filter
                         if(Character.isUpperCase(charArray[i])) {
                             if(i != 0) {
                                 sb.append(".");
@@ -895,7 +903,7 @@ public class ExtensionLoader<T> {
                             sb.append(charArray[i]);
                         }
                     }
-                    value = new String[] {sb.toString()};
+                    adaptiveValArray = new String[] {sb.toString()};
                 }
                 
                 boolean hasInvocation = false;
@@ -913,33 +921,37 @@ public class ExtensionLoader<T> {
                 
                 String defaultExtName = cachedDefaultName;
                 String getNameCode = null;
-                for (int i = value.length - 1; i >= 0; --i) {
-                    if(i == value.length - 1) {
+                for (int i = adaptiveValArray.length - 1; i >= 0; --i) {
+                    //如果adaptiveValArray.length>1,则会进入else方法内
+                    if(i == adaptiveValArray.length - 1) {
                         if(null != defaultExtName) {
-                            if(!"protocol".equals(value[i]))
-                                if (hasInvocation) 
-                                    getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
-                                else
-                                    getNameCode = String.format("url.getParameter(\"%s\", \"%s\")", value[i], defaultExtName);
-                            else
+                            if(!"protocol".equals(adaptiveValArray[i])) {
+                                if (hasInvocation) {
+                                    getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", adaptiveValArray[i], defaultExtName);
+                                } else {
+                                    //url.getParameter("i.filter", "logger")
+                                    getNameCode = String.format("url.getParameter(\"%s\", \"%s\")", adaptiveValArray[i], defaultExtName);
+                                }
+                            } else {
+                                //( url.getProtocol() == null ? "dubbo" : url.getProtocol() )
                                 getNameCode = String.format("( url.getProtocol() == null ? \"%s\" : url.getProtocol() )", defaultExtName);
+                            }
                         }
                         else {
-                            if(!"protocol".equals(value[i]))
+                            if(!"protocol".equals(adaptiveValArray[i]))
                                 if (hasInvocation) 
-                                    getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
+                                    getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", adaptiveValArray[i], defaultExtName);
                                 else
-                                    getNameCode = String.format("url.getParameter(\"%s\")", value[i]);
+                                    getNameCode = String.format("url.getParameter(\"%s\")", adaptiveValArray[i]);
                             else
                                 getNameCode = "url.getProtocol()";
                         }
-                    }
-                    else {
-                        if(!"protocol".equals(value[i]))
+                    } else {
+                        if(!"protocol".equals(adaptiveValArray[i]))
                             if (hasInvocation) 
-                                getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", value[i], defaultExtName);
+                                getNameCode = String.format("url.getMethodParameter(methodName, \"%s\", \"%s\")", adaptiveValArray[i], defaultExtName);
                             else
-                                getNameCode = String.format("url.getParameter(\"%s\", %s)", value[i], getNameCode);
+                                getNameCode = String.format("url.getParameter(\"%s\", %s)", adaptiveValArray[i], getNameCode);
                         else
                             getNameCode = String.format("url.getProtocol() == null ? (%s) : url.getProtocol()", getNameCode);
                     }
@@ -948,7 +960,7 @@ public class ExtensionLoader<T> {
                 // check extName == null?
                 String s = String.format("\nif(extName == null) " +
                 		"throw new IllegalStateException(\"Fail to get extension(%s) name from url(\" + url.toString() + \") use keys(%s)\");",
-                        type.getName(), Arrays.toString(value));
+                        type.getName(), Arrays.toString(adaptiveValArray));
                 code.append(s);
                 
                 s = String.format("\n%s extension = (%<s)%s.getExtensionLoader(%s.class).getExtension(extName);",
