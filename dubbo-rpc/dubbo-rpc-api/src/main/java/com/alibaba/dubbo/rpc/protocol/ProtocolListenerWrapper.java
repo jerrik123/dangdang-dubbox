@@ -15,11 +15,11 @@
  */
 package com.alibaba.dubbo.rpc.protocol;
 
-import java.util.Collections;
-
 import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.extension.ExtensionLoader;
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.rpc.Exporter;
 import com.alibaba.dubbo.rpc.ExporterListener;
 import com.alibaba.dubbo.rpc.Invoker;
@@ -29,12 +29,16 @@ import com.alibaba.dubbo.rpc.RpcException;
 import com.alibaba.dubbo.rpc.listener.ListenerExporterWrapper;
 import com.alibaba.dubbo.rpc.listener.ListenerInvokerWrapper;
 
+import java.util.Collections;
+
 /**
  * ListenerProtocol
  * 
  * @author william.liangf
  */
 public class ProtocolListenerWrapper implements Protocol {
+    // 日志输出
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProtocolListenerWrapper.class);
 
     private final Protocol protocol;
 
@@ -50,7 +54,7 @@ public class ProtocolListenerWrapper implements Protocol {
     }
 
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
-        System.out.println("ProtocolListenerWrapper protocol export begin()");
+        LOGGER.info("ProtocolListenerWrapper protocol export begin()");
         if (Constants.REGISTRY_PROTOCOL.equals(invoker.getUrl().getProtocol())) {
             return protocol.export(invoker);
         }

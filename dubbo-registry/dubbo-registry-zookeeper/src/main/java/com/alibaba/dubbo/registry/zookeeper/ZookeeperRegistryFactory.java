@@ -16,6 +16,8 @@
 package com.alibaba.dubbo.registry.zookeeper;
 
 import com.alibaba.dubbo.common.URL;
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.registry.Registry;
 import com.alibaba.dubbo.registry.support.AbstractRegistryFactory;
 import com.alibaba.dubbo.remoting.zookeeper.ZookeeperTransporter;
@@ -26,6 +28,8 @@ import com.alibaba.dubbo.remoting.zookeeper.ZookeeperTransporter;
  * @author william.liangf
  */
 public class ZookeeperRegistryFactory extends AbstractRegistryFactory {
+	// 日志输出
+	private static final Logger LOGGER = LoggerFactory.getLogger(ZookeeperRegistryFactory.class);
 	
 	private ZookeeperTransporter zookeeperTransporter;
 
@@ -34,6 +38,7 @@ public class ZookeeperRegistryFactory extends AbstractRegistryFactory {
 	}
 
 	public Registry createRegistry(URL url) {
+		LOGGER.info("ZookeeperRegistryFactory createRegistry begin()");
         return new ZookeeperRegistry(url, zookeeperTransporter);
     }
 

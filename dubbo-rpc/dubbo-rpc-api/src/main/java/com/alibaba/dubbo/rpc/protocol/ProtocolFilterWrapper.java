@@ -15,11 +15,11 @@
  */
 package com.alibaba.dubbo.rpc.protocol;
 
-import java.util.List;
-
 import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.extension.ExtensionLoader;
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.rpc.Exporter;
 import com.alibaba.dubbo.rpc.Filter;
 import com.alibaba.dubbo.rpc.Invocation;
@@ -28,12 +28,15 @@ import com.alibaba.dubbo.rpc.Protocol;
 import com.alibaba.dubbo.rpc.Result;
 import com.alibaba.dubbo.rpc.RpcException;
 
+import java.util.List;
+
 /**
  * ListenerProtocol
  * 
  * @author william.liangf
  */
 public class ProtocolFilterWrapper implements Protocol {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProtocolFilterWrapper.class);
 
     private final Protocol protocol;
 
@@ -49,7 +52,7 @@ public class ProtocolFilterWrapper implements Protocol {
     }
 
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
-        System.out.println("ProtocolFilterWrapper protocol export begin()");
+        LOGGER.info("ProtocolFilterWrapper protocol export begin()");
         if (Constants.REGISTRY_PROTOCOL.equals(invoker.getUrl().getProtocol())) {
             return protocol.export(invoker);
         }
@@ -68,6 +71,7 @@ public class ProtocolFilterWrapper implements Protocol {
     }
 
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
+        LOGGER.info("ProtocolFilterWrapper buildInvokerChain begin()");
         Invoker<T> last = invoker;
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
         if (filters.size() > 0) {

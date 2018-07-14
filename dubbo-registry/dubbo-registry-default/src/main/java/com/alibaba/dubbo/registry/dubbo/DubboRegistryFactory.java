@@ -15,14 +15,11 @@
  */
 package com.alibaba.dubbo.registry.dubbo;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-
 import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.bytecode.Wrapper;
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.common.utils.NetUtils;
 import com.alibaba.dubbo.common.utils.StringUtils;
 import com.alibaba.dubbo.registry.Registry;
@@ -34,12 +31,18 @@ import com.alibaba.dubbo.rpc.Protocol;
 import com.alibaba.dubbo.rpc.ProxyFactory;
 import com.alibaba.dubbo.rpc.cluster.Cluster;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+
 /**
  * DubboRegistryFactory
  * 
  * @author william.liangf
  */
 public class DubboRegistryFactory extends AbstractRegistryFactory {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DubboRegistryFactory.class);
     
     private Protocol protocol;
 
@@ -60,6 +63,7 @@ public class DubboRegistryFactory extends AbstractRegistryFactory {
     }
     
     public Registry createRegistry(URL url) {
+        LOGGER.info("DubboRegistryFactory createRegistry begin()");
         url = getRegistryURL(url);
         List<URL> urls = new ArrayList<URL>();
         urls.add(url.removeParameter(Constants.BACKUP_KEY));
