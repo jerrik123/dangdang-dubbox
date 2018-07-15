@@ -238,6 +238,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         checkApplication();
         checkRegistry();
         checkProtocol();
+        //判断是否具有set方法,如果有,则通过is或者get方法获取一次,如果参数为空,则从配置文件中获取.如果能从配置文件中能获取到最新值,则通过set进行设置更新
         appendProperties(this);
         checkStubAndMock(interfaceClass);
         if (path == null || path.length() == 0) {
@@ -364,6 +365,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         appendParameters(map, provider, Constants.DEFAULT_KEY);
         appendParameters(map, protocolConfig);
         appendParameters(map, this);
+
+        //List<MethodConfig> methods
         if (methods != null && methods.size() > 0) {
             for (MethodConfig method : methods) {
                 appendParameters(map, method, method.getName());

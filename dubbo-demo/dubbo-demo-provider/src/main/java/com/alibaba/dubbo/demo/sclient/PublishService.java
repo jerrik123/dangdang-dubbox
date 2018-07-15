@@ -6,6 +6,7 @@ import com.alibaba.dubbo.config.RegistryConfig;
 import com.alibaba.dubbo.config.ServiceConfig;
 import com.alibaba.dubbo.demo.service.IUserService;
 import com.alibaba.dubbo.demo.service.impl.UserServiceImpl;
+
 import java.io.IOException;
 
 /**
@@ -43,6 +44,8 @@ public class PublishService {
         service.setInterface(IUserService.class);
         service.setRef(userService);
         service.setVersion("1.0.0");
+
+        //service.setDelay();
 
         // 暴露及注册服务
         service.export();

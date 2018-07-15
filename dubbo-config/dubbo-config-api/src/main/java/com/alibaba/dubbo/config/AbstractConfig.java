@@ -15,14 +15,6 @@
  */
 package com.alibaba.dubbo.config;
 
-import java.io.Serializable;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.extension.ExtensionLoader;
@@ -33,6 +25,14 @@ import com.alibaba.dubbo.common.utils.ConfigUtils;
 import com.alibaba.dubbo.common.utils.ReflectUtils;
 import com.alibaba.dubbo.common.utils.StringUtils;
 import com.alibaba.dubbo.config.support.Parameter;
+
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 配置解析的工具方法、公共方法
@@ -143,6 +143,7 @@ public abstract class AbstractConfig implements Serializable {
         for (Method method : methods) {
             try {
                 String name = method.getName();
+                //如果Config中的方法以set开头
                 if (name.length() > 3 && name.startsWith("set") && Modifier.isPublic(method.getModifiers()) 
                         && method.getParameterTypes().length == 1 && isPrimitive(method.getParameterTypes()[0])) {
                     String property = StringUtils.camelToSplitName(name.substring(3, 4).toLowerCase() + name.substring(4), "-");
@@ -165,6 +166,7 @@ public abstract class AbstractConfig implements Serializable {
                     if (value == null || value.length() == 0) {
                         Method getter;
                         try {
+                            //获取config的get()方法  如果找不到,则获取is开头的方法
                             getter = config.getClass().getMethod("get" + name.substring(3), new Class<?>[0]);
                         } catch (NoSuchMethodException e) {
                             try {
@@ -173,7 +175,10 @@ public abstract class AbstractConfig implements Serializable {
                                 getter = null;
                             }
                         }
+
+                        //如果config中存在get()和is()方法
                         if (getter != null) {
+                            //get()和is()返回参数为空，则从配置文件中获取
                             if (getter.invoke(config, new Object[0]) == null) {
                                 if (config.getId() != null && config.getId().length() > 0) {
                                     value = ConfigUtils.getProperty(prefix + config.getId() + "." + property);
