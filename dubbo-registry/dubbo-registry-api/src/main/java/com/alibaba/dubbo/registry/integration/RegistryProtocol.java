@@ -108,14 +108,22 @@ public class RegistryProtocol implements Protocol {
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker);
         //registry provider
         final Registry registry = getRegistry(originInvoker);
+
+        //register protocol to dubbo protocol
         final URL registedProviderUrl = getRegistedProviderUrl(originInvoker);
         registry.register(registedProviderUrl);
+
         // 订阅override数据
         // FIXME 提供者订阅时，会影响同一JVM即暴露服务，又引用同一服务的的场景，因为subscribed以服务名为缓存的key，导致订阅信息覆盖。
+        // provider 协议
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(registedProviderUrl);
+
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl);
+
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
+
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
+
         //保证每次export都返回一个新的exporter实例
         return new Exporter<T>() {
             public Invoker<T> getInvoker() {
@@ -188,6 +196,7 @@ public class RegistryProtocol implements Protocol {
             String protocol = registryUrl.getParameter(Constants.REGISTRY_KEY, Constants.DEFAULT_DIRECTORY);
             registryUrl = registryUrl.setProtocol(protocol).removeParameter(Constants.REGISTRY_KEY);
         }
+        //ZookeeperRegistryFactory
         return registryFactory.getRegistry(registryUrl);
     }
 
@@ -197,6 +206,7 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private URL getRegistedProviderUrl(final Invoker<?> originInvoker){
+        logger.info("getRegistedProviderUrl registry protocol transform to dubbo protocol");
         URL providerUrl = getProviderUrl(originInvoker);
         //注册中心看到的地址
         final URL registedProviderUrl = providerUrl.removeParameters(getFilteredKeys(providerUrl)).removeParameter(Constants.MONITOR_KEY);
@@ -204,6 +214,7 @@ public class RegistryProtocol implements Protocol {
     }
     
     private URL getSubscribedOverrideUrl(URL registedProviderUrl){
+        logger.info("getSubscribedOverrideUrl dubbo protocol transform to provider protocol");
     	return registedProviderUrl.setProtocol(Constants.PROVIDER_PROTOCOL)
                 .addParameters(Constants.CATEGORY_KEY, Constants.CONFIGURATORS_CATEGORY, 
                         Constants.CHECK_KEY, String.valueOf(false));

@@ -132,6 +132,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         failedUnregistered.remove(url);
         try {
             // 向服务器端发送注册请求
+            logger.info("failbackRegistry register begin()");
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
@@ -188,6 +189,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         super.subscribe(url, listener);
+        logger.info("failbackRegistry subscribe url: " + url);
         removeFailedSubscribed(url, listener);
         try {
             // 向服务器端发送订阅请求
@@ -280,6 +282,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     
     @Override
     protected void recover() throws Exception {
+        logger.info("FailbackRegistry recover()");
         // register
         Set<URL> recoverRegistered = new HashSet<URL>(getRegistered());
         if (! recoverRegistered.isEmpty()) {

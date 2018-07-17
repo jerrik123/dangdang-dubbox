@@ -90,6 +90,7 @@ public abstract class AbstractRegistry implements Registry {
     public AbstractRegistry(URL url) {
         setUrl(url);
         // 启动文件保存定时器
+        logger.info("AbstractRegistry create .cache and load properties");
         syncSaveFile = url.getParameter(Constants.REGISTRY_FILESAVE_SYNC_KEY, false);
         String filename = url.getParameter(Constants.FILE_KEY, System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getHost() + ".cache");
         File file = null;
@@ -397,6 +398,7 @@ public abstract class AbstractRegistry implements Registry {
             if (listeners != null) {
                 for (NotifyListener listener : listeners) {
                     try {
+                        logger.info("notify registry event begin()");
                         notify(url, listener, filterEmpty(url, urls));
                     } catch (Throwable t) {
                         logger.error("Failed to notify registry event, urls: " +  urls + ", cause: " + t.getMessage(), t);
